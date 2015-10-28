@@ -176,25 +176,38 @@
 
 - (void)pickContact:(CDVInvokedUrlCommand *)command
 {
-    // mimic chooseContact method call with required for us parameters
-    NSArray* desiredFields = [command argumentAtIndex:0 withDefault:[NSArray array]];
-    if (desiredFields == nil || desiredFields.count == 0) {
-        desiredFields = [NSArray arrayWithObjects:@"*", nil];
-    }
-    NSMutableDictionary* options = [NSMutableDictionary dictionaryWithCapacity:2];
-    
-    [options setObject: desiredFields forKey:@"fields"];
-    [options setObject: [NSNumber numberWithBool: FALSE] forKey:@"allowsEditing"];
-    
-    NSArray* args = [NSArray arrayWithObjects:options, nil];
-    
-    CDVInvokedUrlCommand* newCommand = [[CDVInvokedUrlCommand alloc] initWithArguments:args
-                 callbackId:command.callbackId
-                  className:command.className
-                 methodName:command.methodName];
-    
-    [self chooseContact:newCommand];
-    
+    CDVAddressBookHelper* abHelper = [[CDVAddressBookHelper alloc] init];
+    NSString* callbackId = command.callbackId;
+    CDVContacts* __weak weakSelf = self;  // play it safe to avoid retain cycles
+
+    [abHelper createAddressBook: ^(ABAddressBookRef addrBook, CDVAddressBookAccessError* errCode) {
+        if (addrBook == NULL) {
+            // permission was denied or other error - return error
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageToErrorObject:errCode ? (int)errCode.errorCode:UNKNOWN_ERROR];
+            [weakSelf.commandDelegate sendPluginResult:result callbackId:callbackId];
+            return;
+        }
+
+        // mimic chooseContact method call with required for us parameters
+        NSArray* desiredFields = [command argumentAtIndex:0 withDefault:[NSArray array]];
+        if (desiredFields == nil || desiredFields.count == 0) {
+            desiredFields = [NSArray arrayWithObjects:@"*", nil];
+        }
+        NSMutableDictionary* options = [NSMutableDictionary dictionaryWithCapacity:2];
+
+        [options setObject: desiredFields forKey:@"fields"];
+        [options setObject: [NSNumber numberWithBool: FALSE] forKey:@"allowsEditing"];
+
+        NSArray* args = [NSArray arrayWithObjects:options, nil];
+
+        CDVInvokedUrlCommand* newCommand = [[CDVInvokedUrlCommand alloc] initWithArguments:args
+                                                                                callbackId:command.callbackId
+                                                                                 className:command.className
+                                                                                methodName:command.methodName];
+
+        [self chooseContact:newCommand];
+
+    }];
 }
 
 - (BOOL)peoplePickerNavigationController:(ABPeoplePickerNavigationController*)peoplePicker
